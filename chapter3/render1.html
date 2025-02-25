@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>支持组件的基础渲染器</title>
+</head>
+<body>
+    <script>
+        // 支持组件
+        const MyComponent = function() {
+            return {
+                tag:'div',
+                props:{
+                    onClick:()=>alert('hello')
+                },
+                children:'click me'
+            }
+        }
+        const vnode = {
+            tag:MyComponent,
+        }
+        function renderer(vnode,container) {
+            if(typeof vnode.tag === 'string') {
+                mountElement(vnode,container)
+            }else if(typeof vnode.tag === 'function') {
+                mountComponent(vnode,container)
+            }
+        }
+        function mountComponent(vnode,container) {
+            const subTree = vnode.tag();
+            renderer(subTree,container);
+        }
+        function mountElement(vnode,container) {
+            const el = document.createElement(vnode.tag);
+            for(let key in vnode.props){
+                if(/^on/.test(key)) {
+                    el.addEventListener(key.substring(2).toLowerCase(),vnode.props[key])
+                }
+            }
+            if(typeof vnode.children === 'string') {
+                el.appendChild(document.createTextNode(vnode.children));
+            } else if(Array.isArray(vnode.children)){
+                vnode.children.forEach(child => renderer(child,el));
+            }
+            container.appendChild(el); 
+        }
+
+        renderer(vnode,document.body);
+    </script>
+</body>
+</html>
