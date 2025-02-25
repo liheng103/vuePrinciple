@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>响应式数据完善实现</title>
+</head>
+<body>
+    <script>
+        // 目的：副作用函数无论叫什么都能被收集到
+        
+        const bucket = new Set();
+        const data = {text:"hello world"};
+        const obj = new Proxy(data,{
+            get:function(target, key) {
+                if(activeEffect) {
+                    bucket.add(activeEffect);
+                }
+                return target[key]
+            },
+            set:function(target, key, value) {
+                target[key] = value;
+                bucket.forEach(fn => fn())
+                return true
+            }
+        })
+
+        let activeEffect;// 存储被注册的副作用函数
+        function effect(fn) {// 注册副作用函数
+            activeEffect = fn;
+            fn()// 触发响应式数据读取操作
+        }
+        effect(
+            () => {
+                console.log('effect run')
+                document.body.innerText = obj.text
+            }
+        )
+
+        setTimeout(()=>{
+            // obj.text = 'hello vue3'
+            obj.noExist = 'hello vue3' // 问题：不相关字段也触发了副作用函数
+        },1000)
+    </script>
+</body>
+</html>
