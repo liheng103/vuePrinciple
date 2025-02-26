@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>响应式数据完善实现</title>
+</head>
+<body>
+    <script>
+        // 目的：支持分支切换
+        // 如：effect为document.body.innerText = obj.ok ? obj.name : '123';
+        // ok从true改为false，不管name怎么变，应该都不会触发effect，但现在触发了
+        // 因为为true的时候触发了get ok和name，两个都添加了effect
+        
+        const bucket = new WeakMap();
+        const data = {ok:true,name:'zhangsan'};
+        const obj = new Proxy(data,{
+            get:function(target, key) {
+                // console.log('get',target,key)
+                track(target,key)
+                return target[key]
+            },
+            set:function(target, key, value) {
+                // console.log('set',target,key,value)
+                target[key] = value;
+                trigger(target,key)
+                return true
+            }
+        })
+
+        function track(target,key) {
+            if(!activeEffect) return;
+            let depsMap = bucket.get(target);
+            if(!depsMap) {
+                bucket.set(target,(depsMap = new Map()));
+            }
+            let deps = depsMap.get(key)
+            if(!deps) {
+                depsMap.set(key,(deps = new Set()));
+            }
+            deps.add(activeEffect);
+            activeEffect.deps.push(deps)
+        }
+        
+        function trigger(target,key) {
+            const depsMap = bucket.get(target);
+            if(!depsMap) return;
+            const effects = depsMap.get(key);
+            // effects && effects.forEach(fn => fn())
+            const effectsToRun = new Set(effects);
+            effectsToRun.forEach(effectFn => effectFn());
+        }
+
+        let activeEffect;
+        function effect(fn) {
+            const effectFn = () => {
+                cleanup(effectFn)
+                activeEffect = effectFn;
+                fn()
+            }
+            effectFn.deps = [];
+            effectFn()
+        }
+        function cleanup(effectFn) {
+            for(let i = 0; i < effectFn.deps.length; i++) {
+                const deps = effectFn.deps[i];
+                deps.delete(effectFn)
+            }
+            effectFn.deps.length = 0
+        }
+        effect(
+            () => {
+            console.log('effect')
+                document.body.innerText = obj.ok ? obj.name : '123';
+
+            }
+        )
+        setTimeout(()=>{
+            obj.ok = false
+            setTimeout(() => {
+                obj.name = 'ppp'
+            },1000)
+        },1000)
+       
+    </script>
+</body>
+</html>
